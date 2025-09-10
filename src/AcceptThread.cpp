@@ -27,13 +27,16 @@ unsigned int AcceptThread::AcceptLoop(void *param)
         client_sock = accept(self->listen_sock, (sockaddr *)&self->client_addr, &self->addr_size);
         if (client_sock == INVALID_SOCKET)
         {
-            cout << "클라이언트 소켓 Accept 실패. 실패 코드 : " << GetLastError() << endl;
+            cout << "Client Accept Fail. ERR Code : " << GetLastError() << endl;
             break;
         }
         else
         {
             WSAOVERLAPPED *over = new WSAOVERLAPPED{};
             ClientInfo *client = new ClientInfo{client_sock, self->client_addr, *over};
+
+            wsabuf.buf = (char*)&client->buf;
+            wsabuf.len = sizeof(Buffer);
 
             Server::Instance->ClientPush(client);
 

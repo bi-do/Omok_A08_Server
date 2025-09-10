@@ -4,7 +4,19 @@ int main()
 {
     Server *server = new Server{};
     server->Initialize();
-    cout << "서버를 종료하고 싶다면 아무키나 입력하세요" << endl;
+    cout << "Enter EXIT to turn off the server" << endl;
+    string a;
+    while (1)
+    {
+        cin >> a;
+        if (a == "EXIT")
+        {
+            break;
+        }else{
+            cout << "Shutdown Fail. Please Retry" << endl; 
+        }
+    }
+    cout << "Shutdown Success. Press any Key" << endl; 
     _getch();
     delete server;
 }
