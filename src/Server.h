@@ -45,25 +45,30 @@ private:
     /*방 배열 Lcok*/
     CRITICAL_SECTION room_arr_cs;
 
-    void SendRoomList(ClientInfo *client, Buffer *buf);
+    void Send_Room_List(ClientInfo *client, Buffer *buf);
 
-    void SendRoomCreateResult(ClientInfo *client, Buffer *buf);
+    void Send_Room_CreateResult(ClientInfo *client, Buffer *buf);
 
-    void SendRoomJoin(ClientInfo *client, Buffer *buf);
+    void Send_Room_Join(ClientInfo *client, Buffer *buf);
 
-    
+    void Send_Move_REQ(ClientInfo *client, Buffer *buf);
 
-    void SendDoPlay(ClientInfo *client, Buffer *buf);
+    void Send_Move_Com(ClientInfo *client, Buffer *buf);
 
-    void SendGameResult(ClientInfo *client, Buffer *buf);
+    void Send_Game_Result(ClientInfo *client, Buffer *buf);
 
-    void (Server::*func[6])(ClientInfo *client, Buffer *buf) = {
-        &Server::SendRoomList,
-        &Server::SendRoomCreateResult,
-        &Server::SendRoomJoin,
+    void Send_Game_Start(ClientInfo *client, Buffer *buf);
+
+
+    void (Server::*func[8])(ClientInfo *client, Buffer *buf) = {
+        &Server::Send_Room_List,
+        &Server::Send_Room_CreateResult,
+        &Server::Send_Room_Join,
         &Server::SendRoomExit,
-        &Server::SendDoPlay,
-        &Server::SendGameResult};
+        &Server::Send_Move_REQ,
+        &Server::Send_Move_Com,
+        &Server::Send_Game_Result,
+        &Server::Send_Game_Start};
 
 public:
     inline static Server *Instance = nullptr;
@@ -89,9 +94,17 @@ public:
     void ParseAndWork(ClientInfo *client, Buffer *buf);
 
     /*방 생성*/
-    Room* GenerateRoom();
+    Room* GenerateRoom(char* title ,int title_length);
 
-    void DeleteRoom(int room_id);
+    void DeleteRoom(ClientInfo* room);
+
+    Room* FindRoom(ClientInfo *player);
+
+    /*호스트로 변경*/
+    void SetHost(ClientInfo* player);
+
+    /*호스트인지 확인*/
+    bool CheckHost(ClientInfo* player);
 
     /*같은 방에 있는 상대방 반환*/
     ClientInfo * FindOpponent(ClientInfo * player);

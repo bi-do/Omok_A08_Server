@@ -13,14 +13,14 @@ typedef enum Error_Type
 
 enum class Protocol : uint16_t
 {
-    ROOM_GET,    // 방 목록 요청
-    ROOM_CREATE, // 방 생성 요청
-    ROOM_JOIN,   // 방 참가 요청
-    ROOM_EXIT,   // 방 나감
-    GAME_DO,     // 한수 둠
-    GAME_RESULT, // 승패 결정
-    GAME_START,  // 게임 시작
-    CHAT
+    ROOM_GET,      // 방 목록 요청
+    ROOM_CREATE,   // 방 생성 요청
+    ROOM_JOIN,     // 방 참가 요청
+    ROOM_EXIT,     // 방 나감
+    GAME_MOVE_REQ, // 게스트 수 좌표 REQ
+    GAME_MOVE_COM, // 호스트가 수 확정 후 Broad Cast
+    GAME_RESULT,   // 호스트가 결과 확인 후 Broad Cast
+    GAME_START,    // 호스트가 게임 시작
 };
 
 enum class GameResultState : uint8_t
@@ -58,7 +58,6 @@ typedef struct Buffer
     }
 } Buffer;
 
-
 typedef struct ClientInfo
 {
     SOCKET client_sock;      // 클라이언트 소켓
@@ -82,12 +81,13 @@ typedef struct RoomInfo
 {
     int room_id;
     char room_title[ROOM_TITLE_LEN];
-}RoomInfo;
+} RoomInfo;
 
 typedef struct Room
 {
-    ClientInfo *player_black = nullptr;
-    ClientInfo *player_white = nullptr;
+    ClientInfo *host = nullptr;
+    ClientInfo *guest = nullptr;
+    bool HostIsBlack;
     RoomInfo room_info;
     int room_idx;
 
@@ -100,13 +100,13 @@ typedef struct Room
     int JoinRoom(ClientInfo *client)
     {
         int result = 0;
-        if (player_black == nullptr)
+        if (host == nullptr)
         {
-            player_black = client;
+            host = client;
         }
-        else if (player_white == nullptr)
+        else if (guest == nullptr)
         {
-            player_white = client;
+            guest = client;
             result = 1;
         }
         else // 방이 꽉찼다면
@@ -118,8 +118,6 @@ typedef struct Room
         return result;
     }
 } Room;
-
-
 
 typedef struct Cell
 {

@@ -123,31 +123,35 @@ void Server::ParseAndWork(ClientInfo *client, Buffer *buf)
     delete buf;
 }
 
-void Server::SendRoomList(ClientInfo *client, Buffer *buf)
+void Server::Send_Room_List(ClientInfo *client, Buffer *buf)
 {
     int index = 0;
     int vector_size = this->room_vector.size();
 
     int count = 0;
+    int offset = 0;
     RoomInfo *room_info = nullptr;
 
-    memcpy_s(&index, sizeof(int), buf->buffer, sizeof(int));
+    index = buf->buffer[0] - 1;
 
-    for (int i = index; i < vector_size; i++)
+    for (int i = index; i < vector_size || count < 10; i++)
     {
+        offset = (sizeof(RoomInfo) * count);
         room_info = &this->room_vector[index]->room_info;
-        memcpy_s(buf->buffer + (sizeof(RoomInfo) * count), sizeof(buf->buffer), room_info, sizeof(RoomInfo));
+        memcpy_s(buf->buffer + offset, sizeof(buf->buffer) - offset, room_info, sizeof(RoomInfo));
         count++;
     }
+
+    buf->header.body_len = offset;
 
     send(client->client_sock, (char *)buf, sizeof(buf->header) + buf->header.body_len, 0);
 }
 
-void Server::SendRoomCreateResult(ClientInfo *client, Buffer *buf)
+void Server::Send_Room_CreateResult(ClientInfo *client, Buffer *buf)
 {
-    Room *room = GenerateRoom();
+    Room *room = GenerateRoom(&buf->buffer[1], buf->buffer[0]);
 
-    room->player_black = client;
+    room->host = client;
     client->cur_room_id = room->room_info.room_id;
 
     ZeroMemory(buf, sizeof(*buf));
@@ -158,7 +162,7 @@ void Server::SendRoomCreateResult(ClientInfo *client, Buffer *buf)
     send(client->client_sock, (char *)buf, sizeof(buf->header) + buf->header.body_len, 0);
 }
 
-void Server::SendRoomJoin(ClientInfo *client, Buffer *buf)
+void Server::Send_Room_Join(ClientInfo *client, Buffer *buf)
 {
     int room_id = 0;
 
@@ -184,7 +188,7 @@ void Server::SendRoomJoin(ClientInfo *client, Buffer *buf)
         client->cur_room_id = room_id;
 
         // 상대방
-        ClientInfo *opponent = room->player_black == client ? room->player_black : room->player_white;
+        ClientInfo *opponent = room->host == client ? room->host : room->guest;
 
         // Join Send
         buf->BufferSet(Protocol::ROOM_JOIN, 1);
@@ -218,7 +222,7 @@ void Server::SendRoomExit(ClientInfo *client, Buffer *buf)
     }
     else
     {
-        DeleteRoom(client->cur_room_id);
+        DeleteRoom(client);
     }
 
     // 플레이어에게 Room_Exit의 ACK Send;
@@ -228,53 +232,91 @@ void Server::SendRoomExit(ClientInfo *client, Buffer *buf)
     client->cur_room_id = -1;
 }
 
-void Server::SendDoPlay(ClientInfo *client, Buffer *buf)
+void Server::Send_Move_REQ(ClientInfo *client, Buffer *buf)
 {
-    // 상대방
-    ClientInfo *opponent = FindOpponent(client);
-
-    if (opponent == nullptr)
+    if (false)
     {
-        cout << "oppnent is not exist . invalid call. " << endl;
+        cout << "This is an unexpected request : This API is for Guest-only." << endl;
         return;
     }
+    else
+    {
+        ClientInfo *opponent = FindOpponent(client);
 
-    Cell temp_cell{};
-    memcpy_s(&temp_cell.row, sizeof(short), buf->buffer, sizeof(short));                 // row                 // row
-    memcpy_s(&temp_cell.col, sizeof(short), buf->buffer + sizeof(short), sizeof(short)); // col
+        if (opponent == nullptr)
+        {
+            cout << "oppnent is not exist . invalid call. " << endl;
+            return;
+        }
 
-    buf->BufferSet(Protocol::GAME_DO, sizeof(Cell), (char *)&temp_cell);
-
-    send(opponent->client_sock, (char *)buf, sizeof(buf->header) + buf->header.body_len, 0);
+        send(opponent->client_sock, (char *)buf, sizeof(buf->header) + buf->header.body_len, 0);
+    }
 }
 
-void Server::SendGameResult(ClientInfo *client, Buffer *buf)
+void Server::Send_Move_Com(ClientInfo *client, Buffer *buf)
 {
-    // 상대방
-    ClientInfo *opponent = FindOpponent(client);
-
-    if (opponent == nullptr)
+    if (false)
     {
-        cout << "oppnent is not exist . invalid call. " << endl;
+        cout << "This is an unexpected request : This API is for Host-only." << endl;
         return;
     }
-
-    char flag = buf->buffer[0];
-
-    switch ((GameResultState)flag)
+    else
     {
-    case GameResultState::Win:
-        flag = (char)GameResultState::Lose;
-        break;
-    case GameResultState::Lose:
-        flag = (char)GameResultState::Lose;
-        break;
-    case GameResultState::Draw:
-        break;
-    }
+        ClientInfo *opponent = FindOpponent(client);
 
-    buf->BufferSet(Protocol::GAME_RESULT, flag);
-    send(opponent->client_sock, (char *)buf, sizeof(buf->header) + buf->header.body_len, 0);
+        if (opponent == nullptr)
+        {
+            cout << "oppnent is not exist . invalid call. " << endl;
+            return;
+        }
+
+        send(opponent->client_sock, (char *)buf, sizeof(buf->header) + buf->header.body_len, 0);
+    }
+}
+
+void Server::Send_Game_Result(ClientInfo *client, Buffer *buf)
+{
+    if (false)
+    {
+        cout << "This is an unexpected request : This API is for Host-only." << endl;
+        return;
+    }
+    else
+    {
+        ClientInfo *opponent = FindOpponent(client);
+
+        if (opponent == nullptr)
+        {
+            cout << "oppnent is not exist . invalid call. " << endl;
+            return;
+        }
+        send(opponent->client_sock, (char *)buf, sizeof(buf->header) + buf->header.body_len, 0);
+    }
+}
+
+void Server::Send_Game_Start(ClientInfo *client, Buffer *buf)
+{
+    if (false)
+    {
+        cout << "This is an unexpected request : This API is for Host-only." << endl;
+        return;
+    }
+    else
+    {
+        bool host_is_black = buf->buffer[0] == 0? true : false;
+        
+        Room* room =  FindRoom(client);
+        room->HostIsBlack = host_is_black;
+
+        ClientInfo *opponent = FindOpponent(client);
+
+        if (opponent == nullptr)
+        {
+            cout << "oppnent is not exist . invalid call. " << endl;
+            return;
+        }
+        send(opponent->client_sock, (char *)buf, sizeof(buf->header) + buf->header.body_len, 0);
+    }
 }
 
 HANDLE Server::GetIOCPHandle()
@@ -282,7 +324,7 @@ HANDLE Server::GetIOCPHandle()
     return this->IOCPHandle;
 }
 
-Room *Server::GenerateRoom()
+Room *Server::GenerateRoom(char *title, int title_length)
 {
     int roomid;
 
@@ -301,23 +343,22 @@ Room *Server::GenerateRoom()
 
     temp_room->Init(roomid, this->room_vector.size() - 1);
 
+    memcpy_s(temp_room->room_info.room_title, ROOM_TITLE_LEN, title, title_length);
+
     return temp_room;
 }
 
-void Server::DeleteRoom(int room_id)
+void Server::DeleteRoom(ClientInfo *player)
 {
-    Room *room = nullptr;
+    Room *room = FindRoom(player);
     Room *end_room = nullptr;
 
-    auto it = this->room_map.find(room_id);
-    if (it == this->room_map.end())
+    if (room = nullptr)
     {
-        cout << "Room Delete Fail" << endl;
         return;
     }
     else
     {
-        room = it->second;
         end_room = this->room_vector.back();
     }
 
@@ -336,13 +377,12 @@ void Server::DeleteRoom(int room_id)
     delete room;
 };
 
-ClientInfo *Server::FindOpponent(ClientInfo *player)
+Room *Server::FindRoom(ClientInfo *player)
 {
     int room_id = player->cur_room_id;
     Room *room = nullptr;
 
     auto it = room_map.find(room_id);
-
     if (it == this->room_map.end())
     {
         cout << "Room is not exist" << endl;
@@ -353,14 +393,53 @@ ClientInfo *Server::FindOpponent(ClientInfo *player)
         room = it->second;
     }
 
-    if (room->player_black == nullptr || room->player_white == nullptr)
+    return room;
+}
+
+void Server::SetHost(ClientInfo *player)
+{
+    Room *room = FindRoom(player);
+
+    if (room == nullptr)
     {
+        return;
+    }
+    else if (room->host == nullptr)
+    {
+        room->host = player;
+        room->guest = nullptr;
+        return;
+    }
 
-        cout << "Opponent is not exist" << endl;
+    cout << "This is an unexpected request : Set Host ERR" << endl;
+}
 
+bool Server::CheckHost(ClientInfo *player)
+{
+    Room *room = FindRoom(player);
+
+    return room->host == player ? true : false;
+}
+
+ClientInfo *Server::FindOpponent(ClientInfo *player)
+{
+    int room_id = player->cur_room_id;
+    Room *room = FindRoom(player);
+
+    auto it = room_map.find(room_id);
+
+    if (room == nullptr)
+    {
         return nullptr;
     }
 
-    ClientInfo *opponent = room->player_black == player ? room->player_black : room->player_white;
+    if (room->host == nullptr || room->guest == nullptr)
+    {
+
+        cout << "Opponent is not exist" << endl;
+        return nullptr;
+    }
+
+    ClientInfo *opponent = room->host == player ? room->guest : room->host;
     return opponent;
 };
