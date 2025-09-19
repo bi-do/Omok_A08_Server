@@ -56,6 +56,12 @@ typedef struct Buffer
 
         memcpy_s(this->buffer, sizeof(this->buffer), data, body_length);
     }
+
+    void Write(char *data, int length)
+    {
+        memcpy_s(&this->buffer[header.body_len], sizeof(this->buffer) - this->header.body_len, data, length);
+        this->header.body_len += length;
+    }
 } Buffer;
 
 typedef struct ClientInfo
@@ -80,6 +86,7 @@ typedef struct ClientInfo
 typedef struct RoomInfo
 {
     int room_id;
+    unsigned short title_length;
     char room_title[ROOM_TITLE_LEN];
 } RoomInfo;
 

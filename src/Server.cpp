@@ -34,7 +34,7 @@ Server::~Server()
     DeleteCriticalSection(&this->client_arr_cs);
     WSACleanup();
 
-    cout << "Server End" << endl;
+    cout << "Server Shutdown" << endl;
 }
 
 int Server::Initialize()
@@ -104,7 +104,6 @@ void Server::ClientPush(ClientInfo *client)
 
 void Server::ClientRemove(ClientInfo *client)
 {
-
     EnterCriticalSection(&this->client_arr_cs);
     this->client_list.remove(client);
     LeaveCriticalSection(&this->client_arr_cs);
@@ -132,14 +131,17 @@ void Server::Send_Room_List(ClientInfo *client, Buffer *buf)
     int offset = 0;
     RoomInfo *room_info = nullptr;
 
-    index = buf->buffer[0] - 1;
+    memcpy_s(&index, sizeof(int), buf->buffer, sizeof(int));
+    ZeroMemory(buf, sizeof(*buf));
 
-    for (int i = index; i < vector_size || count < 10; i++)
+    for (int i = (index- 1) * 10; i < vector_size && count < 10; i++)
     {
-        offset = (sizeof(RoomInfo) * count);
-        room_info = &this->room_vector[index]->room_info;
-        memcpy_s(buf->buffer + offset, sizeof(buf->buffer) - offset, room_info, sizeof(RoomInfo));
+        room_info = &this->room_vector[i]->room_info;
+        buf->Write((char*)&room_info->room_id , sizeof(int));
+        buf->Write((char*)&room_info->title_length , sizeof(unsigned short));
+        buf->Write((char*)room_info->room_title , room_info->title_length);
         count++;
+        offset += 6 + room_info->title_length;
     }
 
     buf->header.body_len = offset;
@@ -195,12 +197,12 @@ void Server::Send_Room_Join(ClientInfo *client, Buffer *buf)
         send(client->client_sock, (char *)buf, sizeof(buf->header) + buf->header.body_len, 0);
 
         // 상대방 게임 시작 Alert
-        buf->BufferSet(Protocol::GAME_START, 1);
+        buf->BufferSet(Protocol::ROOM_JOIN, 2);
         send(opponent->client_sock, (char *)buf, sizeof(buf->header) + buf->header.body_len, 0);
 
         // 플레이어 게임 시작 Aelrt
-        buf->BufferSet(Protocol::GAME_START, 2);
-        send(client->client_sock, (char *)buf, sizeof(buf->header) + buf->header.body_len, 0);
+        // buf->BufferSet(Protocol::GAME_START, 2);
+        // send(client->client_sock, (char *)buf, sizeof(buf->header) + buf->header.body_len, 0);
     }
     else // 방이 꽉찼을 때
     {
@@ -303,9 +305,9 @@ void Server::Send_Game_Start(ClientInfo *client, Buffer *buf)
     }
     else
     {
-        bool host_is_black = buf->buffer[0] == 0? true : false;
-        
-        Room* room =  FindRoom(client);
+        bool host_is_black = buf->buffer[0] == 0 ? true : false;
+
+        Room *room = FindRoom(client);
         room->HostIsBlack = host_is_black;
 
         ClientInfo *opponent = FindOpponent(client);
@@ -344,6 +346,7 @@ Room *Server::GenerateRoom(char *title, int title_length)
     temp_room->Init(roomid, this->room_vector.size() - 1);
 
     memcpy_s(temp_room->room_info.room_title, ROOM_TITLE_LEN, title, title_length);
+    temp_room->room_info.title_length = title_length;
 
     return temp_room;
 }
@@ -353,7 +356,7 @@ void Server::DeleteRoom(ClientInfo *player)
     Room *room = FindRoom(player);
     Room *end_room = nullptr;
 
-    if (room = nullptr)
+    if (room == nullptr)
     {
         return;
     }

@@ -21,7 +21,7 @@ unsigned int IOCPThread::IOCPStart(void *param)
         {
             if (self->client_over == nullptr) // IOCP 핸들 CLOSE
             {
-                cout << GetLastError() << endl;
+                // cout << GetLastError() << endl;
                 break;
             }
             else
@@ -47,7 +47,7 @@ unsigned int IOCPThread::IOCPStart(void *param)
             WSARecv(self->client->client_sock, &wsabuf,1,nullptr,&self->recv_flags,self->client->over,nullptr);
         }
     }
-    cout << "GQCS Thread End" << endl;
+    // cout << "GQCS Thread End" << endl;
 
     return 0;
 }
