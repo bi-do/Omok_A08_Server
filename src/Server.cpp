@@ -151,7 +151,10 @@ void Server::Send_Room_List(ClientInfo *client, Buffer *buf)
 
 void Server::Send_Room_CreateResult(ClientInfo *client, Buffer *buf)
 {
-    Room *room = GenerateRoom(&buf->buffer[1], buf->buffer[0]);
+    unsigned short title_length = 0;
+    memcpy_s(&title_length , sizeof(unsigned short) , buf->buffer , sizeof(unsigned short));
+
+    Room *room = GenerateRoom(&buf->buffer[2], title_length);
 
     room->host = client;
     client->cur_room_id = room->room_info.room_id;
@@ -354,7 +357,7 @@ HANDLE Server::GetIOCPHandle()
     return this->IOCPHandle;
 }
 
-Room *Server::GenerateRoom(char *title, int title_length)
+Room *Server::GenerateRoom(char *title, unsigned short title_length)
 {
     int roomid;
 

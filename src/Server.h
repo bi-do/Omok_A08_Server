@@ -102,7 +102,7 @@ public:
     void ParseAndWork(ClientInfo *client, Buffer *buf);
 
     /*방 생성*/
-    Room *GenerateRoom(char *title, int title_length);
+    Room *GenerateRoom(char *title, unsigned short  title_length);
 
     void DeleteRoom(ClientInfo *room);
 
