@@ -37,7 +37,7 @@ private:
     unordered_map<int, Room *> room_map;
 
     /*정렬용 방 배열*/
-    vector<Room*> room_vector;
+    vector<Room *> room_vector;
 
     /*클라이언트 배열 Lock*/
     CRITICAL_SECTION client_arr_cs;
@@ -59,8 +59,13 @@ private:
 
     void Send_Game_Start(ClientInfo *client, Buffer *buf);
 
+    void Send_Lobby_Chat(ClientInfo *client, Buffer *buf);
 
-    void (Server::*func[8])(ClientInfo *client, Buffer *buf) = {
+    void Send_Game_Chat(ClientInfo *client, Buffer *buf);
+
+    void Send_Server_BRC(ClientInfo *client, Buffer *buf);
+
+    void (Server::*func[11])(ClientInfo *client, Buffer *buf) = {
         &Server::Send_Room_List,
         &Server::Send_Room_CreateResult,
         &Server::Send_Room_Join,
@@ -68,7 +73,10 @@ private:
         &Server::Send_Move_REQ,
         &Server::Send_Move_Com,
         &Server::Send_Game_Result,
-        &Server::Send_Game_Start};
+        &Server::Send_Game_Start,
+        &Server::Send_Lobby_Chat,
+        &Server::Send_Game_Chat,
+        &Server::Send_Server_BRC};
 
 public:
     inline static Server *Instance = nullptr;
@@ -94,18 +102,18 @@ public:
     void ParseAndWork(ClientInfo *client, Buffer *buf);
 
     /*방 생성*/
-    Room* GenerateRoom(char* title ,int title_length);
+    Room *GenerateRoom(char *title, int title_length);
 
-    void DeleteRoom(ClientInfo* room);
+    void DeleteRoom(ClientInfo *room);
 
-    Room* FindRoom(ClientInfo *player);
+    Room *FindRoom(ClientInfo *player);
 
     /*호스트로 변경*/
-    void SetHost(ClientInfo* player);
+    void SetHost(ClientInfo *player);
 
     /*호스트인지 확인*/
-    bool CheckHost(ClientInfo* player);
+    bool CheckHost(ClientInfo *player);
 
     /*같은 방에 있는 상대방 반환*/
-    ClientInfo * FindOpponent(ClientInfo * player);
+    ClientInfo *FindOpponent(ClientInfo *player);
 };

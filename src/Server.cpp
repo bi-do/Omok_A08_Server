@@ -134,12 +134,12 @@ void Server::Send_Room_List(ClientInfo *client, Buffer *buf)
     memcpy_s(&index, sizeof(int), buf->buffer, sizeof(int));
     ZeroMemory(buf, sizeof(*buf));
 
-    for (int i = (index- 1) * 10; i < vector_size && count < 10; i++)
+    for (int i = (index) * 10; i < vector_size && count < 10; i++)
     {
         room_info = &this->room_vector[i]->room_info;
-        buf->Write((char*)&room_info->room_id , sizeof(int));
-        buf->Write((char*)&room_info->title_length , sizeof(unsigned short));
-        buf->Write((char*)room_info->room_title , room_info->title_length);
+        buf->Write((char *)&room_info->room_id, sizeof(int));
+        buf->Write((char *)&room_info->title_length, sizeof(unsigned short));
+        buf->Write((char *)room_info->room_title, room_info->title_length);
         count++;
         offset += 6 + room_info->title_length;
     }
@@ -190,7 +190,7 @@ void Server::Send_Room_Join(ClientInfo *client, Buffer *buf)
         client->cur_room_id = room_id;
 
         // 상대방
-        ClientInfo *opponent = room->host == client ? room->host : room->guest;
+        ClientInfo *opponent = FindOpponent(client);
 
         // Join Send
         buf->BufferSet(Protocol::ROOM_JOIN, 1);
@@ -221,6 +221,7 @@ void Server::SendRoomExit(ClientInfo *client, Buffer *buf)
         // 상대방에게 플레이어 Exit Alert
         buf->BufferSet(Protocol::ROOM_EXIT, 2);
         send(opponent->client_sock, (char *)buf, sizeof(buf->header) + buf->header.body_len, 0);
+        SetHost(opponent);
     }
     else
     {
@@ -236,7 +237,7 @@ void Server::SendRoomExit(ClientInfo *client, Buffer *buf)
 
 void Server::Send_Move_REQ(ClientInfo *client, Buffer *buf)
 {
-    if (false)
+    if (CheckHost(client))
     {
         cout << "This is an unexpected request : This API is for Guest-only." << endl;
         return;
@@ -257,7 +258,7 @@ void Server::Send_Move_REQ(ClientInfo *client, Buffer *buf)
 
 void Server::Send_Move_Com(ClientInfo *client, Buffer *buf)
 {
-    if (false)
+    if (!CheckHost(client))
     {
         cout << "This is an unexpected request : This API is for Host-only." << endl;
         return;
@@ -278,7 +279,7 @@ void Server::Send_Move_Com(ClientInfo *client, Buffer *buf)
 
 void Server::Send_Game_Result(ClientInfo *client, Buffer *buf)
 {
-    if (false)
+    if (!CheckHost(client))
     {
         cout << "This is an unexpected request : This API is for Host-only." << endl;
         return;
@@ -298,7 +299,7 @@ void Server::Send_Game_Result(ClientInfo *client, Buffer *buf)
 
 void Server::Send_Game_Start(ClientInfo *client, Buffer *buf)
 {
-    if (false)
+    if (!CheckHost(client))
     {
         cout << "This is an unexpected request : This API is for Host-only." << endl;
         return;
@@ -319,6 +320,33 @@ void Server::Send_Game_Start(ClientInfo *client, Buffer *buf)
         }
         send(opponent->client_sock, (char *)buf, sizeof(buf->header) + buf->header.body_len, 0);
     }
+}
+
+void Server::Send_Lobby_Chat(ClientInfo *client, Buffer *buf)
+{
+    for (ClientInfo *client : this->client_list)
+    {
+        if (client->cur_room_id == -1)
+        {
+            send(client->client_sock, (char *)buf, sizeof(buf->header) + buf->header.body_len, 0);
+        }
+    }
+}
+
+void Server::Send_Game_Chat(ClientInfo *client, Buffer *buf)
+{
+    ClientInfo *opponent = FindOpponent(client);
+
+    if (opponent != nullptr)
+    {
+        send(opponent->client_sock, (char *)buf, sizeof(buf->header) + buf->header.body_len, 0);
+    }
+
+    send(client->client_sock, (char *)buf, sizeof(buf->header) + buf->header.body_len, 0);
+}
+
+void Server::Send_Server_BRC(ClientInfo *client, Buffer *buf)
+{
 }
 
 HANDLE Server::GetIOCPHandle()
@@ -407,14 +435,10 @@ void Server::SetHost(ClientInfo *player)
     {
         return;
     }
-    else if (room->host == nullptr)
-    {
-        room->host = player;
-        room->guest = nullptr;
-        return;
-    }
 
-    cout << "This is an unexpected request : Set Host ERR" << endl;
+    room->host = player;
+    room->guest = nullptr;
+    return;
 }
 
 bool Server::CheckHost(ClientInfo *player)
